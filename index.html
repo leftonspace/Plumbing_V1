@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plumbing Dispatch Hub</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">Plumbing Dispatch Hub</h1>
+            <p class="header-subtitle">Multi-Employee Scheduling System (Kevin & Erik)</p>
+            <p class="header-user-id">User ID: <span id="userId">Authenticating...</span></p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <button id="navNewBooking" class="nav-btn nav-btn-active">+ New Booking</button>
+            <button id="navTodaySchedule" class="nav-btn">Today's Schedule</button>
+            <button id="navAvailability" class="nav-btn">Availability Check</button>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="mainContent">
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="loading">
+                <svg class="spinner" viewBox="0 0 24 24">
+                    <circle class="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading data...
+            </div>
+
+            <!-- New Booking View -->
+            <div id="newBookingView" class="view-container card hidden">
+                <h2 class="view-title">Book New Job</h2>
+                <form id="bookingForm" class="form">
+                    <div id="bookingError" class="error-message hidden"></div>
+
+                    <!-- Employee Selection -->
+                    <div class="form-group">
+                        <label for="employee" class="form-label">Assign Employee</label>
+                        <select id="employee" class="form-input" required>
+                            <option value="Kevin">Kevin</option>
+                            <option value="Erik">Erik</option>
+                        </select>
+                    </div>
+
+                    <!-- Customer Name -->
+                    <div class="form-group">
+                        <label for="customerName" class="form-label">Customer Name</label>
+                        <input type="text" id="customerName" class="form-input" placeholder="John Doe" required>
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="form-group">
+                        <label for="phoneNumber" class="form-label">Customer Phone Number</label>
+                        <input type="tel" id="phoneNumber" class="form-input" placeholder="(555) 123-4567" required>
+                    </div>
+
+                    <!-- Address -->
+                    <div class="form-group">
+                        <label for="address" class="form-label">Job Address (Click map icon to verify)</label>
+                        <div class="input-with-button">
+                            <input type="text" id="address" class="form-input" placeholder="123 Main St, Anytown, USA" required>
+                            <button type="button" id="mapBtn" class="map-btn" title="Open in Google Maps">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Job Description -->
+                    <div class="form-group">
+                        <label for="jobDescription" class="form-label">Job Description</label>
+                        <textarea id="jobDescription" class="form-input form-textarea" rows="3" placeholder="Leaky faucet repair at 123 Main St." required></textarea>
+                    </div>
+
+                    <!-- Date and Time -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bookingDate" class="form-label">Date</label>
+                            <input type="date" id="bookingDate" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bookingTime" class="form-label">Time</label>
+                            <input type="time" id="bookingTime" class="form-input" value="09:00" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-full">Confirm Booking</button>
+                </form>
+            </div>
+
+            <!-- Today's Schedule View -->
+            <div id="todayScheduleView" class="view-container card hidden">
+                <h2 id="scheduleTitle" class="view-title">Schedule for: </h2>
+
+                <div class="filter-row">
+                    <div class="form-group">
+                        <label for="scheduleDate" class="form-label">Select Date</label>
+                        <input type="date" id="scheduleDate" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleEmployeeFilter" class="form-label">Filter by Employee</label>
+                        <select id="scheduleEmployeeFilter" class="form-input">
+                            <option value="All">All Employees</option>
+                            <option value="Kevin">Kevin</option>
+                            <option value="Erik">Erik</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="scheduleList" class="schedule-list">
+                    <!-- Jobs will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Availability Check View (Calendar) -->
+            <div id="availabilityView" class="view-container card hidden">
+                <div class="calendar-header">
+                    <button id="prevMonth" class="btn btn-secondary">&larr; Prev</button>
+                    <h2 id="calendarMonth" class="calendar-title"></h2>
+                    <button id="nextMonth" class="btn btn-secondary">Next &rarr;</button>
+                </div>
+
+                <div class="color-key">
+                    <h3 class="color-key-title">Employee Color Key:</h3>
+                    <div class="color-key-items">
+                        <div class="color-key-item">
+                            <span class="color-dot color-kevin"></span>
+                            <span>Kevin</span>
+                        </div>
+                        <div class="color-key-item">
+                            <span class="color-dot color-erik"></span>
+                            <span>Erik</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="calendarGrid" class="calendar-grid">
+                    <!-- Calendar will be rendered here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Job Report Modal -->
+        <div id="reportModal" class="modal hidden">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 id="modalTitle" class="modal-title">Job Report: </h3>
+                    <button id="closeModal" class="btn btn-close">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div id="finalizedBanner" class="finalized-banner hidden">
+                    ✅ Report Finalized. Status: Completed.
+                </div>
+
+                <div id="modalError" class="error-message hidden"></div>
+
+                <!-- Job Info -->
+                <div class="job-info-grid">
+                    <p><strong>Employee:</strong> <span id="modalEmployee"></span></p>
+                    <p><strong>Time:</strong> <span id="modalTime"></span></p>
+                    <p><strong>Address:</strong> <span id="modalAddress" class="link"></span></p>
+                    <p><strong>Phone:</strong> <a id="modalPhone" class="link" href="#"></a></p>
+                    <p class="span-2"><strong>Initial Job:</strong> <span id="modalJobDescription"></span></p>
+                </div>
+
+                <!-- AI Transcription Section -->
+                <div class="ai-section">
+                    <h4 class="ai-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                        AI Voice Memo Transcription
+                    </h4>
+                    <textarea id="aiMemoText" class="form-input form-textarea" rows="2" placeholder="Simulate Technician's Voice Memo here (e.g., 'The leak was a broken washer in the faucet. I replaced the washer and also installed a new handle. Total time 45 minutes.')"></textarea>
+                    <button id="transcribeBtn" class="btn btn-primary btn-full">
+                        <span id="transcribeBtnText">Transcribe & Auto-Fill Fields</span>
+                        <svg id="transcribeSpinner" class="spinner hidden" viewBox="0 0 24 24">
+                            <circle class="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Work Summary -->
+                <div class="form-group">
+                    <label for="reportSummary" class="form-label">Work Summary (Final Report)</label>
+                    <textarea id="reportSummary" class="form-input form-textarea" rows="3"></textarea>
+                </div>
+
+                <!-- Parts Used -->
+                <div class="form-group">
+                    <label for="partsUsed" class="form-label">Parts Used (One item per line)</label>
+                    <textarea id="partsUsed" class="form-input form-textarea" rows="3"></textarea>
+                </div>
+
+                <!-- Pricing and Signature -->
+                <div class="pricing-signature-grid">
+                    <div class="pricing-section">
+                        <div class="price-box">
+                            <label for="finalPrice" class="form-label price-label">Final Price (Auto-Generated)</label>
+                            <input type="number" id="finalPrice" class="price-input">
+                            <p class="price-note">Price is based on job keywords plus labor adjustment.</p>
+                        </div>
+                    </div>
+
+                    <div class="signature-section">
+                        <label class="form-label">Client Signature <span id="signedIndicator"></span></label>
+                        <canvas id="signatureCanvas" width="400" height="100" class="signature-canvas"></canvas>
+                        <button id="clearSignature" class="btn btn-warning btn-full btn-sm">Clear Signature</button>
+                        <p id="signatureNote" class="signature-note hidden"></p>
+                    </div>
+                </div>
+
+                <!-- Finalize Button -->
+                <div class="finalize-section">
+                    <button id="finalizeBtn" class="btn btn-purple btn-full btn-lg">
+                        Finalize Report & Mark Complete
+                    </button>
+                    <div id="finalizedMessage" class="finalized-message hidden">
+                        <p class="finalized-message-title">SMS/PDF Generation Service:</p>
+                        <p class="finalized-message-text">This functionality (generating a PDF and sending it via SMS) requires a dedicated backend server and external API integration (e.g., Twilio, PDF services) and cannot be completed within this web application. The report is saved!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+    <!-- App Script -->
+    <script src="app.js"></script>
+</body>
+</html>

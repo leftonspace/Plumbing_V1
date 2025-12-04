@@ -27,8 +27,8 @@ A scheduling and job management application for plumbing businesses. Book appoin
 - **Real-time Sync** - All data syncs in real-time across devices
 
 ### Planned Features
-- [ ] SMS confirmation to clients (requires Twilio integration)
-- [ ] PDF receipt generation (requires backend service)
+- [x] SMS confirmation to clients (Twilio integration ready)
+- [x] PDF receipt generation (Cloud Functions ready)
 - [ ] Employee login/authentication
 - [ ] Job history and search
 - [ ] Invoice management
@@ -42,6 +42,9 @@ A scheduling and job management application for plumbing businesses. Book appoin
 | **Frontend** | HTML, CSS, JavaScript | Vanilla JS, no frameworks |
 | **Database** | Firebase Firestore | Real-time NoSQL database |
 | **Authentication** | Firebase Auth | Currently anonymous auth |
+| **Backend** | Firebase Cloud Functions | PDF generation, SMS sending |
+| **Storage** | Firebase Storage | PDF receipts storage |
+| **SMS** | Twilio | Client notifications |
 | **AI Assistant** | OpenAI API (gpt-4o-mini) | Voice memo transcription |
 | **Maps** | Google Maps | Address verification |
 
@@ -61,10 +64,18 @@ A scheduling and job management application for plumbing businesses. Book appoin
 
 ```
 Plumbing_V1/
-├── index.html      # Main HTML structure
-├── styles.css      # All styling
-├── app.js          # Application logic & Firebase integration
-└── README.md       # This file
+├── index.html              # Main HTML structure
+├── styles.css              # All styling
+├── app.js                  # Application logic & Firebase integration
+├── firebase.json           # Firebase project configuration
+├── firestore.rules         # Firestore security rules
+├── firestore.indexes.json  # Firestore indexes
+├── storage.rules           # Storage security rules
+├── .firebaserc             # Firebase project link
+├── README.md               # This file
+└── functions/              # Cloud Functions
+    ├── package.json        # Dependencies
+    └── index.js            # SMS & PDF generation logic
 ```
 
 ---
@@ -108,36 +119,100 @@ Then open `http://localhost:8000` in your browser.
 
 ---
 
-## SMS & PDF Implementation Guide
+## SMS & PDF Deployment Guide
 
-The SMS and PDF features require a backend server. Here's the recommended approach:
+The Cloud Functions are ready to deploy. Follow these steps:
 
-### Option A: Firebase Cloud Functions (Recommended)
+### How It Works
 
 ```
-Client completes report
+Technician finalizes report
         ↓
-Firebase Firestore (save report)
+Firestore document updated (reportFinalized = true)
         ↓
-Cloud Function triggers on document write
+Cloud Function triggers automatically
         ↓
-Generate PDF (using pdf-lib or PDFKit)
+PDF receipt generated (PDFKit)
         ↓
-Send SMS via Twilio with PDF link
+PDF uploaded to Firebase Storage
         ↓
-Store PDF in Firebase Storage
+SMS sent to client via Twilio with PDF link
 ```
 
-**Services Needed:**
-- **Twilio** - SMS service (~$0.0075/SMS)
-- **Firebase Cloud Functions** - Serverless backend
-- **Firebase Storage** - Store generated PDFs
+### Step 1: Install Firebase CLI
 
-### Option B: External Backend
+```bash
+npm install -g firebase-tools
+firebase login
+```
 
-Use a Node.js/Express server with:
-- `twilio` npm package for SMS
-- `pdfkit` or `puppeteer` for PDF generation
+### Step 2: Set Up Twilio Account
+
+1. Sign up at [twilio.com](https://www.twilio.com/)
+2. Get your **Account SID** and **Auth Token** from the dashboard
+3. Get a phone number (or use trial number for testing)
+
+### Step 3: Configure Twilio Credentials
+
+```bash
+cd /home/user/Plumbing_V1
+
+# Set Twilio configuration
+firebase functions:config:set twilio.sid="YOUR_ACCOUNT_SID"
+firebase functions:config:set twilio.token="YOUR_AUTH_TOKEN"
+firebase functions:config:set twilio.phone="+1234567890"
+```
+
+### Step 4: Install Dependencies & Deploy
+
+```bash
+# Install function dependencies
+cd functions
+npm install
+
+# Deploy everything
+cd ..
+firebase deploy
+```
+
+Or deploy only specific parts:
+```bash
+firebase deploy --only functions      # Just Cloud Functions
+firebase deploy --only firestore     # Just Firestore rules
+firebase deploy --only storage       # Just Storage rules
+firebase deploy --only hosting       # Just frontend
+```
+
+### Step 5: Enable Firebase Storage
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Select your project (plumber---app)
+3. Go to **Storage** → **Get Started**
+4. Choose a location (us-central1 recommended)
+
+### Testing
+
+**Test locally first:**
+```bash
+cd functions
+npm run serve
+```
+
+**Test SMS manually:**
+After deployment, you can trigger SMS manually via HTTP:
+```bash
+curl -X POST https://us-central1-plumber---app.cloudfunctions.net/sendReceiptManually \
+  -H "Content-Type: application/json" \
+  -d '{"appId": "plumber---app", "bookingId": "YOUR_BOOKING_ID"}'
+```
+
+### Costs
+
+| Service | Cost |
+|---------|------|
+| Twilio SMS | ~$0.0079/message |
+| Cloud Functions | Free tier: 2M invocations/month |
+| Firebase Storage | Free tier: 5GB storage, 1GB/day download |
 
 ### Firestore Data Structure
 
@@ -161,7 +236,9 @@ artifacts/
                     ├── partsUsed: array
                     ├── finalPrice: number
                     ├── signatureData: string (base64)
-                    └── reportFinalized: boolean
+                    ├── reportFinalized: boolean
+                    ├── pdfUrl: string (added by Cloud Function)
+                    └── smsSentAt: timestamp (added by Cloud Function)
 ```
 
 ---

@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow public read access to receipts
+    match /receipts/{allPaths=**} {
+      allow read: if true;
+      // Only Cloud Functions can write (no client-side write)
+      allow write: if false;
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

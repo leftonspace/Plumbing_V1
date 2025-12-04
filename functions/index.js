@@ -11,7 +11,96 @@ const storage = admin.storage();
 
 // Twilio Configuration - Set these in Firebase environment config
 // firebase functions:config:set twilio.sid="YOUR_SID" twilio.token="YOUR_TOKEN" twilio.phone="YOUR_PHONE"
+// firebase functions:config:set company.name="Your Company Name"
 const twilioConfig = functions.config().twilio || {};
+const companyConfig = functions.config().company || { name: 'Plumbing Dispatch Hub' };
+
+/**
+ * Cloud Function: onBookingCreated
+ * Triggers when a new booking is created
+ * Sends SMS confirmation to the customer
+ */
+exports.onBookingCreated = functions.firestore
+    .document('artifacts/{appId}/public/data/bookings/{bookingId}')
+    .onCreate(async (snapshot, context) => {
+        const booking = snapshot.data();
+        const bookingId = context.params.bookingId;
+
+        console.log(`New booking created: ${bookingId}`);
+
+        try {
+            // Send confirmation SMS
+            const smsResult = await sendBookingConfirmationSMS(booking);
+
+            // Update document with confirmation status
+            await snapshot.ref.update({
+                confirmationSmsSent: true,
+                confirmationSmsSentAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            console.log(`Confirmation SMS sent for booking: ${bookingId}`);
+            return { success: true, bookingId, smsResult };
+
+        } catch (error) {
+            console.error('Error sending confirmation SMS:', error);
+
+            // Update document with error status
+            await snapshot.ref.update({
+                confirmationSmsError: error.message,
+                confirmationSmsErrorAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            throw error;
+        }
+    });
+
+/**
+ * Send booking confirmation SMS to client via Twilio
+ */
+async function sendBookingConfirmationSMS(booking) {
+    if (!twilioConfig.sid || !twilioConfig.token || !twilioConfig.phone) {
+        console.warn('Twilio not configured. Skipping confirmation SMS.');
+        console.log('To configure: firebase functions:config:set twilio.sid="X" twilio.token="X" twilio.phone="X"');
+        return { skipped: true, reason: 'Twilio not configured' };
+    }
+
+    const client = twilio(twilioConfig.sid, twilioConfig.token);
+
+    // Format date nicely
+    const dateObj = new Date(booking.date + 'T' + booking.time);
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    const formattedTime = dateObj.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+
+    const message = `Hi ${booking.customerName}! Thank you for choosing ${companyConfig.name}.
+
+Your appointment has been confirmed for:
+📅 ${formattedDate}
+🕐 ${formattedTime}
+
+Technician: ${booking.employee}
+Address: ${booking.address}
+
+We look forward to serving you!
+- ${companyConfig.name}`;
+
+    const result = await client.messages.create({
+        body: message,
+        from: twilioConfig.phone,
+        to: booking.phoneNumber
+    });
+
+    console.log(`Confirmation SMS sent successfully. SID: ${result.sid}`);
+    return { success: true, messageSid: result.sid };
+}
 
 /**
  * Cloud Function: onReportFinalized

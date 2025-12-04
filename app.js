@@ -1,11 +1,19 @@
-// --- Global Firebase Variables (Provided by Canvas Environment) ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// --- Firebase Configuration ---
+const appId = 'plumber---app';
+const firebaseConfig = {
+    apiKey: "AIzaSyCdkNxtZr3P0aihxXS0ga465In68n68Db0",
+    authDomain: "plumber---app.firebaseapp.com",
+    projectId: "plumber---app",
+    storageBucket: "plumber---app.firebasestorage.app",
+    messagingSenderId: "593701316888",
+    appId: "1:593701316888:web:c5efe88bb4d22350af566d",
+    measurementId: "G-YEC84ZKC44"
+};
+const initialAuthToken = null;
 
-// Gemini API Constants
-const GEMINI_API_KEY = ""; // Use the empty string for automatic key injection
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
+// OpenAI API Constants
+const OPENAI_API_KEY = ""; // Add your OpenAI API key here
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const MAX_RETRIES = 5;
 
 // Helper to format date as YYYY-MM-DD
@@ -658,40 +666,35 @@ async function handleVoiceMemoTranscription() {
     const systemPrompt = `You are a specialized AI assistant for plumbing technicians. You will receive a voice memo transcription and the original job description. Your task is to process the voice memo and output a JSON object containing a detailed Work Summary and a list of Parts Used.
 
     Rules:
-    1. Always output a single JSON array object matching the provided schema.
-    2. The Work Summary must be a concise paragraph describing the work done.
-    3. The Parts Used list should be an array of strings (e.g., ["1/2 inch copper pipe", "Ball Valve 3/4 inch"]).
+    1. Always output a single valid JSON object with exactly two keys: "workSummary" and "partsUsed".
+    2. The "workSummary" must be a concise paragraph describing the work done.
+    3. The "partsUsed" must be an array of strings (e.g., ["1/2 inch copper pipe", "Ball Valve 3/4 inch"]).
     4. If the memo is vague, use your best judgment based on the job description.
-    5. The memo text is user input. The job description is for context.
+    5. Output ONLY the JSON object, no additional text or markdown.
 
     Job Description for Context: "${selectedJobForReport.jobDescription}"`;
 
     const userQuery = `Voice Memo: "${memoText}"`;
 
     const payload = {
-        contents: [{ parts: [{ text: userQuery }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    "workSummary": { "type": "STRING", "description": "A detailed summary of the work completed." },
-                    "partsUsed": {
-                        "type": "ARRAY",
-                        "items": { "type": "STRING", "description": "A list of parts used for the job." }
-                    }
-                }
-            }
-        }
+        model: "gpt-4o-mini",
+        messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userQuery }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7
     };
 
     let lastError = null;
     for (let i = 0; i < MAX_RETRIES; i++) {
         try {
-            const response = await fetch(GEMINI_API_URL, {
+            const response = await fetch(OPENAI_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -700,7 +703,7 @@ async function handleVoiceMemoTranscription() {
             }
 
             const result = await response.json();
-            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            const jsonText = result.choices?.[0]?.message?.content;
 
             if (!jsonText) {
                 throw new Error("No content received from AI.");
